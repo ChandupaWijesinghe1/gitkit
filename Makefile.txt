@@ -1,0 +1,34 @@
+.PHONY: help install install-dev test lint format typecheck clean
+
+help:
+	@echo "Available commands:"
+	@echo "  make install       - Install package"
+	@echo "  make install-dev   - Install with dev dependencies"
+	@echo "  make test          - Run tests with coverage"
+	@echo "  make lint          - Run ruff linter"
+	@echo "  make format        - Format code with ruff"
+	@echo "  make typecheck     - Run mypy type checker"
+	@echo "  make clean         - Remove build artifacts"
+
+install:
+	pip install -e .
+
+install-dev:
+	pip install -e ".[dev]"
+
+test:
+	pytest --cov=src/gitkit --cov-report=term-missing --cov-report=html
+
+lint:
+	ruff check src/ tests/
+
+format:
+	ruff format src/ tests/
+
+typecheck:
+	mypy src/gitkit/
+
+clean:
+	rm -rf build dist *.egg-info
+	rm -rf .pytest_cache .coverage htmlcov
+	find . -type d -name __pycache__ -exec rm -r {} +
