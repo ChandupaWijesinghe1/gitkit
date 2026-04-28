@@ -106,3 +106,35 @@ def test_clean_branches_error_case():
         finally:
             os.chdir(original_dir)
 
+
+def test_stats_happy_path(git_repo):
+    """Happy path: stats command returns commit stats for a valid branch."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["stats", "HEAD"])
+
+    assert result.exit_code == 0
+    assert "Stats for HEAD" in result.output
+    assert "Total Commits" in result.output
+    assert "all time" in result.output
+
+
+def test_stats_edge_case_no_commits_in_period(git_repo):
+    """Edge case: stats with a future --since returns zero commits."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["stats", "HEAD", "--since", "3000-01-01"])
+
+    assert result.exit_code == 0
+    assert "Stats for HEAD" in result.output
+    assert "Total Commits" in result.output
+    assert "0" in result.output
+    assert "3000-01-01" in result.output
+
+
+def test_stats_error_case_invalid_branch(git_repo):
+    """Error case: stats on a non-existent branch."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["stats", "does-not-exist"])
+
+    assert result.exit_code != 0
+    assert "Branch 'does-not-exist' not found" in result.output
+
