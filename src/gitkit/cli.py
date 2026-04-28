@@ -13,7 +13,7 @@ console = Console()
 @click.group(invoke_without_command=True)
 @click.version_option(version=__version__)
 @click.pass_context
-def main(ctx):
+def main(ctx: click.Context) -> None:
     """gitkit - Fast Git workflow CLI tool."""
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
@@ -22,7 +22,7 @@ def main(ctx):
 @main.command()
 @click.option("--dry-run", is_flag=True, default=True, help="Show what would be deleted")
 @click.option("--remote", is_flag=True, help="Also delete from remote")
-def clean_branches(dry_run: bool, remote: bool):
+def clean_branches(dry_run: bool, remote: bool) -> None:
     """Delete merged branches."""
     try:
         deleted = clean_branches_impl(dry_run=dry_run, remote=remote)
@@ -47,7 +47,7 @@ def clean_branches(dry_run: bool, remote: bool):
 @main.command()
 @click.argument("branch", required=False, default="HEAD")
 @click.option("--since", help="Show commits since (e.g., '2 weeks ago')")
-def stats(branch: str, since: str):
+def stats(branch: str, since: str | None) -> None:
     """Show git statistics."""
     try:
         data = get_stats_impl(branch=branch, since=since)
@@ -67,7 +67,7 @@ def stats(branch: str, since: str):
 
 
 @main.command()
-def sync_fork():
+def sync_fork() -> None:
     """Sync fork with upstream (placeholder)."""
     console.print("[yellow]Not implemented yet[/yellow]")
     console.print("Run: git remote add upstream <original-repo-url>")
