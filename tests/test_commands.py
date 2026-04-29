@@ -138,3 +138,125 @@ def test_stats_error_case_invalid_branch(git_repo):
     assert result.exit_code != 0
     assert "Branch 'does-not-exist' not found" in result.output
 
+
+def test_sync_fork_happy_path():
+    """Happy path: sync-fork fast-forwards from upstream/main."""
+    original_dir = os.getcwd()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        upstream_work = root / "upstream-work"
+        upstream_bare = root / "upstream.git"
+        fork_repo = root / "fork"
+
+        try:
+            subprocess.run(
+                ["git", "init", "-b", "main", str(upstream_work)], check=True, capture_output=True
+            )
+            os.chdir(upstream_work)
+            subprocess.run(
+                ["git", "config", "user.email", "test@test.com"], check=True, capture_output=True
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"], check=True, capture_output=True
+            )
+            (upstream_work / "file.txt").write_text("initial")
+            subprocess.run(["git", "add", "."], check=True, capture_output=True)
+            subprocess.run(["git", "commit", "-m", "initial"], check=True, capture_output=True)
+
+            os.chdir(root)
+            subprocess.run(
+                ["git", "clone", "--bare", str(upstream_work), str(upstream_bare)],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "clone", str(upstream_bare), str(fork_repo)],
+                check=True,
+                capture_output=True,
+            )
+
+            os.chdir(upstream_work)
+            subprocess.run(
+                ["git", "remote", "add", "origin", str(upstream_bare)],
+                check=True,
+                capture_output=True,
+            )
+            (upstream_work / "file.txt").write_text("second")
+            subprocess.run(["git", "add", "."], check=True, capture_output=True)
+            subprocess.run(["git", "commit", "-m", "second"], check=True, capture_output=True)
+            subprocess.run(["git", "push", "-u", "origin", "main"], check=True, capture_output=True)
+
+            os.chdir(fork_repo)
+            subprocess.run(
+                ["git", "remote", "add", "upstream", str(upstream_bare)],
+                check=True,
+                capture_output=True,
+            )
+            runner = CliRunner()
+            result = runner.invoke(main, ["sync-fork"])
+
+            assert result.exit_code == 0
+            assert "Synced from upstream/main" in result.output
+        finally:
+            os.chdir(original_dir)
+
+
+def test_sync_fork_edge_case_already_up_to_date():
+    """Edge case: sync-fork reports when no new upstream commits exist."""
+    original_dir = os.getcwd()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        upstream_work = root / "upstream-work"
+        upstream_bare = root / "upstream.git"
+        fork_repo = root / "fork"
+
+        try:
+            subprocess.run(
+                ["git", "init", "-b", "main", str(upstream_work)], check=True, capture_output=True
+            )
+            os.chdir(upstream_work)
+            subprocess.run(
+                ["git", "config", "user.email", "test@test.com"], check=True, capture_output=True
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"], check=True, capture_output=True
+            )
+            (upstream_work / "file.txt").write_text("initial")
+            subprocess.run(["git", "add", "."], check=True, capture_output=True)
+            subprocess.run(["git", "commit", "-m", "initial"], check=True, capture_output=True)
+
+            os.chdir(root)
+            subprocess.run(
+                ["git", "clone", "--bare", str(upstream_work), str(upstream_bare)],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "clone", str(upstream_bare), str(fork_repo)],
+                check=True,
+                capture_output=True,
+            )
+
+            os.chdir(fork_repo)
+            subprocess.run(
+                ["git", "remote", "add", "upstream", str(upstream_bare)],
+                check=True,
+                capture_output=True,
+            )
+            runner = CliRunner()
+            result = runner.invoke(main, ["sync-fork"])
+
+            assert result.exit_code == 0
+            assert "Already up to date with upstream/main" in result.output
+        finally:
+            os.chdir(original_dir)
+
+
+def test_sync_fork_error_case_missing_upstream(git_repo):
+    """Error case: sync-fork fails when upstream remote is missing."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["sync-fork"])
+
+    assert result.exit_code != 0
+    assert "Upstream remote not configured" in result.output
+

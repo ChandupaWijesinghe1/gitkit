@@ -5,7 +5,7 @@ from rich.console import Console
 from rich.table import Table
 
 from gitkit import __version__
-from gitkit.commands import clean_branches_impl, get_stats_impl
+from gitkit.commands import clean_branches_impl, get_stats_impl, sync_fork_impl
 
 console = Console()
 
@@ -68,10 +68,21 @@ def stats(branch: str, since: str | None) -> None:
 
 @main.command()
 def sync_fork() -> None:
-    """Sync fork with upstream (placeholder)."""
-    console.print("[yellow]Not implemented yet[/yellow]")
-    console.print("Run: git remote add upstream <original-repo-url>")
-    console.print("Then: git pull upstream main")
+    """Sync fork with upstream."""
+    try:
+        result = sync_fork_impl()
+        if result["updated"]:
+            console.print(
+                f"[green]Synced from upstream/{result['upstream_branch']} "
+                f"({result['commits']} new commit(s))[/green]"
+            )
+        else:
+            console.print(
+                f"[yellow]Already up to date with upstream/{result['upstream_branch']}[/yellow]"
+            )
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise click.Abort()
 
 
 if __name__ == "__main__":
