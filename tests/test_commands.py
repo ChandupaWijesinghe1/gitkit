@@ -1,5 +1,6 @@
 """Tests for gitkit commands."""
-
+# Test to check if the clean-branches command works.
+import json
 import os
 import subprocess
 import tempfile
@@ -137,6 +138,48 @@ def test_stats_error_case_invalid_branch(git_repo):
 
     assert result.exit_code != 0
     assert "Branch 'does-not-exist' not found" in result.output
+
+
+def test_stats_output_format_json(git_repo: Path) -> None:
+    """Output format test: stats command supports machine-readable JSON output."""
+    runner = CliRunner()
+    result = runner.invoke(main, ["stats", "HEAD", "--json"])
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["branch"] == "HEAD"
+    assert data["since"] == "all time"
+    assert isinstance(data["total_commits"], int)
+    assert sorted(data.keys()) == ["branch", "since", "total_commits"]
+
+
+def test_stats_git_repository_state(git_repo: Path) -> None:
+    """Git repository state test: commit count reflects current repo state."""
+    (git_repo / "state.txt").write_text("state-change")
+    subprocess.run(["git", "add", "."], check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "state commit"], check=True, capture_output=True)
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["stats", "HEAD", "--json"])
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["total_commits"] == 2
+
+
+def test_stats_not_a_repo_error_handling() -> None:
+    """Not-a-repo error handling test for stats command."""
+    original_dir = os.getcwd()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        try:
+            os.chdir(tmpdir)
+            runner = CliRunner()
+            result = runner.invoke(main, ["stats", "HEAD"])
+
+            assert result.exit_code != 0
+            assert "Not a git repository" in result.output
+        finally:
+            os.chdir(original_dir)
 
 
 def test_sync_fork_happy_path():

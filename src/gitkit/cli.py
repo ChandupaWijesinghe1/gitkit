@@ -1,5 +1,7 @@
 """CLI entry points using Click."""
 
+import json
+
 import click
 from rich.console import Console
 from rich.table import Table
@@ -16,7 +18,8 @@ console = Console()
 def main(ctx: click.Context) -> None:
     """gitkit - Fast Git workflow CLI tool."""
     if ctx.invoked_subcommand is None:
-        click.echo(ctx.get_help())
+        console.print("[green]gitkit CLI ready[/green]")
+        console.print(ctx.get_help())
 
 
 @main.command()
@@ -39,6 +42,11 @@ def clean_branches(dry_run: bool, remote: bool) -> None:
         for branch in deleted:
             console.print(f"  • {branch}")
 
+        if dry_run:
+            console.print("[green]Dry-run completed successfully[/green]")
+        else:
+            console.print("[green]Branch cleanup completed successfully[/green]")
+
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
         raise click.Abort()
@@ -47,10 +55,14 @@ def clean_branches(dry_run: bool, remote: bool) -> None:
 @main.command()
 @click.argument("branch", required=False, default="HEAD")
 @click.option("--since", help="Show commits since (e.g., '2 weeks ago')")
-def stats(branch: str, since: str | None) -> None:
+@click.option("--json", "json_output", is_flag=True, help="Output stats as JSON")
+def stats(branch: str, since: str | None, json_output: bool) -> None:
     """Show git statistics."""
     try:
         data = get_stats_impl(branch=branch, since=since)
+        if json_output:
+            click.echo(json.dumps(data))
+            return
 
         table = Table(title=f"Stats for {branch}")
         table.add_column("Metric", style="cyan")
@@ -60,6 +72,7 @@ def stats(branch: str, since: str | None) -> None:
         table.add_row("Period", data["since"])
 
         console.print(table)
+        console.print("[green]Stats generated successfully[/green]")
 
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")

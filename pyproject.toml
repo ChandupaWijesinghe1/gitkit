@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "gitkit"
 version = "0.1.0"
-description = "Fast Git workflow CLI tool for managing branches and commits"
+description = "CLI tool for Git branch cleanup, repository stats, and fork sync workflows"
 readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [
-    {name = "chandupawijesinghe1", email = "chandupawijesinghe@gmail.com"}
+    {name = "Chandupa Wijesinghe", email = "chandupawijesinghe@gmail.com"}
 ]
 dependencies = [
     "click>=8.0",
