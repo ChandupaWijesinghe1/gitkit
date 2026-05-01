@@ -56,7 +56,7 @@ RUN useradd --create-home --uid 1000 gitkit \
 
 USER gitkit
 
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 # Entry point — purpose: `[project.scripts] gitkit` is the CLI; args become subcommands.
 # Default CMD shows help; override e.g. `docker run IMAGE stats HEAD --json`.
 # -----------------------------------------------------------------------------
