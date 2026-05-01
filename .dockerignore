@@ -1,0 +1,31 @@
+# -----------------------------------------------------------------------------
+# Purpose: shrink build context sent to Docker and avoid copying junk into daemon.
+# -----------------------------------------------------------------------------
+
+# Purpose: Virtual environments belong on the host, not inside the image build context.
+.venv/
+.venv-install-test/
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+
+# Purpose: Generated artifacts — image builds from pyproject.toml + src/, not wheels.
+dist/
+build/
+*.egg-info/
+
+# Purpose: Coverage and caches — irrelevant to Dockerfile COPY / pip install.
+htmlcov/
+.coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Purpose: VCS metadata not needed when COPY only selects project files explicitly.
+.git/
+.github/
+
+# Purpose: Documentation / editor noise not required for installing the package.
+docs/
+.idea/
+.vscode/

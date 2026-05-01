@@ -1,0 +1,92 @@
+# Name shown in the GitHub Actions tab.
+name: CI
+
+# Trigger CI on every push and every pull request.
+on:
+  push:
+  pull_request:
+
+jobs:
+  # Job 1: Lint the codebase using Ruff.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout repository code so the runner can access project files.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Install requested Python version for the project.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Upgrade pip and install project with dev dependencies (ruff is in [dev]).
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      # Run lint checks.
+      - name: Run Ruff
+        run: ruff check .
+
+  # Job 2: Static type checking with mypy.
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      # Pull repository code.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Install Python runtime.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Install dependencies needed for mypy.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      # Run type checks over the project.
+      - name: Run mypy
+        run: mypy .
+
+  # Job 3: Run tests and collect coverage.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # Pull repository code.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Install Python runtime.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Install test dependencies.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      # Run tests with coverage output in terminal.
+      - name: Run pytest with coverage
+        run: pytest --cov=src/gitkit --cov-report=term-missing
+
+  # Job 4: Verify Docker image can be built successfully.
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      # Pull repository code.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Build the Docker image from Dockerfile in repo root.
+      - name: Build Docker image
+        run: docker build -t gitkit:ci .
