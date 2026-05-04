@@ -1,64 +1,62 @@
 # =============================================================================
-# Base image — purpose: match project Python requirement (>=3.12) with a small OS.
-# --------------------------------------------------------------------------------
+# Production image for gitkit (CLI). Intended for GHCR and local Docker use.
+#
+# Local build:
+#   docker build -t gitkit:local .
+#
+# GitHub Actions builds from the same Dockerfile and pushes to ghcr.io.
+# Optional build args improve registry metadata (passed by CI when set):
+#   --build-arg GITKIT_VERSION=0.1.0
+#   --build-arg GITKIT_REVISION=<git-sha>
+# =============================================================================
+
 FROM python:3.12-slim
 
+# Optional metadata for GitHub Container Registry / OCI consumers.
+ARG GITKIT_VERSION=0.1.0
+ARG GITKIT_REVISION=local
+ARG GITKIT_SOURCE_URL=https://github.com/ChandupaWijesinghe1/gitkit
+
+LABEL org.opencontainers.image.title="gitkit"
+LABEL org.opencontainers.image.description="CLI tool for Git branch cleanup, repository stats, and fork sync workflows"
+LABEL org.opencontainers.image.version="${GITKIT_VERSION}"
+LABEL org.opencontainers.image.revision="${GITKIT_REVISION}"
+LABEL org.opencontainers.image.source="${GITKIT_SOURCE_URL}"
+LABEL org.opencontainers.image.licenses="MIT"
+
 # -----------------------------------------------------------------------------
-# System packages — purpose: git must be present; gitkit runs `git` via subprocess.
-# Install only what's needed and clear apt lists to keep the layer small.
+# Git — gitkit shells out to `git` for all commands.
 # -----------------------------------------------------------------------------
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
 
 # -----------------------------------------------------------------------------
-# Environment — purpose:
-# PYTHONUNBUFFERED=1 → logs/prints show immediately (no buffering in containers).
-# PYTHONDONTWRITEBYTECODE=1 → avoids writing .pyc files into image layers.
+# Python / pip defaults for small, predictable containers.
 # -----------------------------------------------------------------------------
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# -----------------------------------------------------------------------------
-# Working directory — purpose:
-# Expected use: bind-mount your repo here, e.g. `docker run -v "$(pwd):/workspace" …`
-# so clean-branches, stats, sync-fork operate on that repository.
-# -----------------------------------------------------------------------------
 WORKDIR /workspace
 
-# -----------------------------------------------------------------------------
-# Project files — purpose: copy only what's required to install the package
-# (matches setuptools layout: pyproject.toml, README, packages under src/).
-# -----------------------------------------------------------------------------
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
 
 # -----------------------------------------------------------------------------
-# Install gitkit — purpose: install runtime deps (click, rich) from pyproject.toml.
-# Omit optional [dev] so the image stays lean for end users / CI parity with wheel.
+# Install app (runtime deps only — no dev tools in the published image).
 # -----------------------------------------------------------------------------
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
-    && pip install --no-cache-dir .
+RUN python -m pip install --upgrade pip setuptools wheel \
+    && python -m pip install --no-cache-dir .
 
-# -----------------------------------------------------------------------------
-# Git safety for bind mounts — purpose:
-# Mark /workspace as trusted to avoid "detected dubious ownership" when host
-# repositories are mounted from Windows/macOS into the Linux container.
-# -----------------------------------------------------------------------------
+# Allow Git operations on mounted host repos (avoids dubious ownership errors).
 RUN git config --system --add safe.directory /workspace
 
-# -----------------------------------------------------------------------------
-# Non-root user — purpose: safer default than running as root when operating on mounts.
-# UID 1000 often matches host user for writable bind mounts without root on files.
-# -----------------------------------------------------------------------------
 RUN useradd --create-home --uid 1000 gitkit \
     && chown -R gitkit:gitkit /workspace
 
 USER gitkit
 
-# ----------------------------------------------------------------------------
-# Entry point — purpose: `[project.scripts] gitkit` is the CLI; args become subcommands.
-# Default CMD shows help; override e.g. `docker run IMAGE stats HEAD --json`.
-# -----------------------------------------------------------------------------
 ENTRYPOINT ["gitkit"]
 CMD ["--help"]

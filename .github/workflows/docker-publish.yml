@@ -1,0 +1,69 @@
+# Purpose: Build the Docker image and push it to GitHub Container Registry (GHCR).
+# Registry URL: https://ghcr.io
+# Image will look like: ghcr.io/<owner>/<repo>:<tag>
+name: Publish Docker image
+
+on:
+  # Run when you push to main (typical for :latest).
+  push:
+    branches:
+      - main
+    # Uncomment to also publish on version tags, e.g. v0.1.0 → tag :v0.1.0
+    # tags:
+    #   - "v*"
+
+  # Lets you trigger a publish manually from Actions tab.
+  workflow_dispatch:
+
+# Purpose: GHCR upload needs permission to write packages.
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  push_to_ghcr:
+    runs-on: ubuntu-latest
+    steps:
+      # Purpose: clone repo so Dockerfile and context files are available on the runner.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Purpose: GHCR requires lowercase paths; repository may be mixed case on GitHub.
+      - name: Compute image name (lowercase)
+        id: prep
+        run: |
+          echo "IMAGE=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      # Purpose: Authenticate to ghcr.io using the workflow token (no extra PAT needed for same repo).
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Purpose: Set up QEMU/buildx if you later need multi-arch; harmless for amd64-only.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Purpose: Read version from pyproject.toml so image labels match the Python package version.
+      - name: Read package version from pyproject.toml
+        id: pkg
+        run: |
+          PYVER=$(python3 -c "import tomllib, pathlib; d=tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8')); print(d['project']['version'])")
+          echo "version=${PYVER}" >> "$GITHUB_OUTPUT"
+
+      # Purpose: Build from repo-root Dockerfile and push two tags: commit SHA (immutable) and latest.
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ steps.prep.outputs.IMAGE }}:${{ github.sha }}
+            ${{ steps.prep.outputs.IMAGE }}:latest
+          build-args: |
+            GITKIT_VERSION=${{ steps.pkg.outputs.version }}
+            GITKIT_REVISION=${{ github.sha }}
+            GITKIT_SOURCE_URL=${{ github.server_url }}/${{ github.repository }}
